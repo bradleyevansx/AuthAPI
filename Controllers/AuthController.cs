@@ -15,7 +15,7 @@ namespace Authentication.Controllers;
 [ApiController]
 public class AuthController : ControllerBase
 {
-    public static User user = new User();
+    private static User _user = new User();
     private readonly IConfiguration _configuration;
     private readonly IUserService _userService;
 
@@ -34,27 +34,26 @@ public class AuthController : ControllerBase
         [HttpPost("register")]
     public ActionResult<User> Register(UserDTO request)
     {
-        string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-        user.Username = request.Username;
-        user.PasswordHash = passwordHash;
+        _user.Username = request.Username;
+        _user.Password = request.Password;
 
-        return Ok(user);
+        return Ok(_user);
     }
     [HttpPost("login")]
     public ActionResult<string> Login(UserDTO request)
     {
-        if (user.Username != request.Username)
+        if (_user.Username != request.Username)
         {
             return BadRequest("User Not Found.");
         }
 
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (_user.Password != request.Password)
         {
             return BadRequest("Wrong Password");
         }
 
-        var token = CreateToken(user);
+        var token = CreateToken(_user);
 
         var refreshToken = GenerateRefreshToken();
         SetRefreshToken(refreshToken);
@@ -67,17 +66,17 @@ public class AuthController : ControllerBase
     {
         var refreshToken = Request.Cookies["refreshToken"];
 
-        if (!user.RefreshToken.Equals(refreshToken))
+        if (!_user.RefreshToken.Equals(refreshToken))
         {
             return Unauthorized("Invalid Refresh Token.");
         }
 
-        if (user.TokenExpired < DateTime.Now)
+        if (_user.TokenExpired < DateTime.Now)
         {
             return Unauthorized("Token Expired");
         }
 
-        string token = CreateToken(user);
+        string token = CreateToken(_user);
         var newRefreshToken = GenerateRefreshToken();
         SetRefreshToken(newRefreshToken);
 
@@ -93,9 +92,9 @@ public class AuthController : ControllerBase
         };
         Response.Cookies.Append("refreshToken", newRefreshToken.Token, cookieOptions);
 
-        user.RefreshToken = newRefreshToken.Token;
-        user.TokenCreated = newRefreshToken.Created;
-        user.TokenExpired = newRefreshToken.Expired;
+        _user.RefreshToken = newRefreshToken.Token;
+        _user.TokenCreated = newRefreshToken.Created;
+        _user.TokenExpired = newRefreshToken.Expired;
     }
 
     private RefreshToken GenerateRefreshToken()
